@@ -86,9 +86,9 @@ Set puppet master in /etc/puppetlabs/puppet/puppet.conf
     Notice: Applied catalog in 0.03 seconds
 
 ---------------------
-**Installing Ntp**
+## Installing Ntp
 
-## Puppet Master
+**Puppet Master**
 
 **Searching modules**
 
