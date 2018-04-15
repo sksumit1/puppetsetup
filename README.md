@@ -40,6 +40,8 @@ Signing Certificate Request for:
 Notice: Signed certificate request for puppetagent.local
 Notice: Removing file Puppet::SSL::CertificateRequest puppetagent.local at '/etc/puppetlabs/puppet/ssl/ca/requests/puppetagent.local.pem'
 
+vi /etc/puppetlabs/code/environments/production/manifests/site.pp
+     notify {"Agent connection is successful": }
 
 Puppet Agent
 
@@ -65,12 +67,12 @@ Exiting; no certificate found and waitforcert is disabled
 2nd puppet run after signed certificate
 
 [root@localhost ~]# puppet agent -tv
-Info: Caching certificate for puppetagent.local
-Info: Caching certificate for puppetagent.local
 Info: Using configured environment 'production'
 Info: Retrieving pluginfacts
 Info: Retrieving plugin
 Info: Retrieving locales
 Info: Caching catalog for puppetagent.local
-Info: Applying configuration version '1523746532'
+Info: Applying configuration version '1523748297'
+Notice: Agent connection is successful
+Notice: /Stage[main]/Main/Notify[Agent connection is successful]/message: defined 'message' as 'Agent connection is successful'
 Notice: Applied catalog in 0.03 seconds
