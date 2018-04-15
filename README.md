@@ -1,4 +1,5 @@
 
+
 # Puppet Master
 
 rpm -Uvh https://yum.puppet.com/puppet5/puppet5-release-el-7.noarch.rpm
@@ -134,3 +135,193 @@ vi /etc/puppetlabs/code/environments/production/manifests/site.pp
     ntpdate-4.2.6p5-25.el7.centos.2.x86_64
     ———
 
+# Setting profiles & roles
+
+[root@puppetmaster data]# puppet config print hiera_config
+Warning: No section specified; defaulting to 'main'.
+Set the config section by using the `--section` flag.
+For example, `puppet config --section user print foo`.
+For more information, see https://puppet.com/docs/puppet/latest/configuration.html
+Resolving settings from section 'main' in environment 'production'
+/etc/puppetlabs/puppet/hiera.yaml
+
+[root@puppetmaster data]# mv /etc/puppetlabs/puppet/hiera.yaml /etc/puppetlabs/puppet/hiera.yaml.bak
+[root@puppetmaster data]# ln -s /etc/puppetlabs/code/environments/production/hiera.yaml /etc/puppetlabs/puppet/hiera.yaml
+
+    [root@puppetmaster data]# vi /etc/puppetlabs/code/environments/production/hiera.yaml
+    ---
+    :backends:
+      - yaml
+    :hierarchy:
+      - "nodes/%{::fqdn}.yaml"
+      - “%{::environment}/role/{::role}“
+      - “%{::environment}"
+      - common.yaml
+    
+    :yaml:
+    # datadir is empty here, so hiera uses its defaults:
+    # - /var/lib/hiera on *nix
+    # - %CommonAppData%\PuppetLabs\hiera\var on Windows
+    # When specifying a datadir, make sure the directory exists.
+      :datadir: /etc/puppetlabs/code/environments/production/data
+
+vi /etc/puppetlabs/code/environments/production/data/common.yaml
+
+    motd::message: Hello from Hiera
+
+[root@puppetmaster data]# tree 
+
+    /etc/puppetlabs/code/environments/production/data
+    /etc/puppetlabs/code/environments/production/data
+    ├── common.yaml
+    ├── nodes
+    │   └── puppetagent.local.yaml
+    └── cloud
+        ├── aws.yaml
+        └── role
+            └── role_db.yaml
+
+
+[root@puppetmaster data]# cat /etc/puppetlabs/code/environments/production/manifests/site.pp
+
+    notify { hiera(motd::message): }
+    notify {"Agent connection is successful": }
+    class { '::ntp':
+      servers => [ '0.pool.ntp.org', '2.centos.pool.ntp.org', '1.rhel.pool.ntp.org'],
+    }
+    group { 'wheel':
+      ensure => 'present',
+      gid    => '10',
+    }
+    user { 'skumar':
+      ensure     => present,
+      uid        => '507',
+      gid        => '10',
+      shell      => '/bin/bash',
+      home       => '/home/skumar',
+      managehome => true,
+    }
+
+**On Puppet Agent**
+
+    [root@puppetagent ~]# puppet agent -t
+    Info: Using configured environment 'production'
+    Info: Retrieving pluginfacts
+    Info: Retrieving plugin
+    Info: Retrieving locales
+    Info: Loading facts
+    Info: Caching catalog for puppetagent.local
+    Info: Applying configuration version '1523767646'
+    Notice: Hello from Hiera
+    Notice: /Stage[main]/Main/Notify[Hello from Hiera]/message: defined 'message' as 'Hello from Hiera'
+    Notice: Agent connection is successful
+    Notice: /Stage[main]/Main/Notify[Agent connection is successful]/message: defined 'message' as 'Agent connection is successful'
+    Notice: Applied catalog in 0.18 seconds
+
+**Creating Profiles**
+
+    vi /etc/puppetlabs/code/environments/production/modules/profile/manifests/apache.pp
+    class profile::apache {
+      class { 'apache':
+        default_vhost => true,
+      }
+    }
+    
+    vi /etc/puppetlabs/code/environments/production/modules/profile/manifests/mysql.pp
+    class profile::mysql {
+      class { 'mysql::server':
+        root_password  => 'root',
+        remove_default_accounts => false,
+      }
+      include mysql::client
+    }
+    
+    vi /etc/puppetlabs/code/environments/production/modules/profile/manifests/base.pp
+    class profile::base {
+        include tree
+        include rubygems
+        include lint
+        include puppet_vim
+    }
+**Install 3rd party modules in puppet master**
+
+    [root@puppetmaster manifests]# puppet module install puppetlabs/apache
+    Notice: Preparing to install into /etc/puppetlabs/code/environments/production/modules ...
+    Notice: Downloading from https://forgeapi.puppet.com ...
+    Notice: Installing -- do not interrupt ...
+    /etc/puppetlabs/code/environments/production/modules
+    └─┬ puppetlabs-apache (v3.1.0)
+      ├── puppetlabs-concat (v4.2.1)
+      └── puppetlabs-stdlib (v4.25.1)
+    [root@puppetmaster manifests]# puppet module install puppetlabs/mysql
+    Notice: Preparing to install into /etc/puppetlabs/code/environments/production/modules ...
+    Notice: Downloading from https://forgeapi.puppet.com ...
+    Notice: Installing -- do not interrupt ...
+    /etc/puppetlabs/code/environments/production/modules
+    └─┬ puppetlabs-mysql (v5.3.0)
+      ├── puppet-staging (v3.2.0)
+      ├── puppetlabs-stdlib (v4.25.1)
+      └── puppetlabs-translate (v1.1.0)
+
+**Create role** 
+
+    vi /etc/puppetlabs/code/environments/production/modules/role/manifests/webserver.pp
+    class role::webserver {
+      include profile::apache
+      include profile::mysql
+    }
+
+**Assign role to node**
+
+    vi /etc/puppetlabs/code/environments/production/manifests/site.pp
+    notify { hiera(motd::message): }
+    notify {"Agent connection is successful": }
+    class { '::ntp':
+      servers => [ '0.pool.ntp.org', '2.centos.pool.ntp.org', '1.rhel.pool.ntp.org'],
+    }
+    group { 'wheel':
+      ensure => 'present',
+      gid    => '10',
+    }
+    user { 'skumar':
+      ensure     => present,
+      uid        => '507',
+      gid        => '10',
+      shell      => '/bin/bash',
+      home       => '/home/skumar',
+      managehome => true,
+    }
+    node 'puppetagent.local' {
+      include role::webserver
+    }
+
+Run puppet agent
+
+        [root@puppetagent ~]# puppet agent -t
+        Info: Using configured environment 'production'
+        Info: Retrieving pluginfacts
+        Info: Retrieving plugin
+        Info: Retrieving locales
+        Info: Loading facts
+        Info: Caching catalog for puppetagent.local
+        Info: Applying configuration version '1523776437'
+        Notice: This is puppetagent.local
+        Notice: /Stage[main]/Main/Notify[This is puppetagent.local]/message: defined 'message' as 'This is puppetagent.local'
+        Notice: Agent connection is successful
+        Notice: /Stage[main]/Main/Notify[Agent connection is successful]/message: defined 'message' as 'Agent connection is successful'
+        Notice: /Stage[main]/Apache/Package[httpd]/ensure: created
+        Info: /Stage[main]/Apache/Package[httpd]: Scheduling refresh of Class[Apache::Service]
+        Info: Computing checksum on file /etc/httpd/conf.d/README
+        Info: /Stage[main]/Apache/File[/etc/httpd/conf.d/README]: Filebucketed /etc/httpd/conf.d/README to puppet with sum 20b886e8496027dcbc31ed28d404ebb1
+        Notice: /Stage[main]/Apache/File[/etc/httpd/conf.d/README]/ensure: removed
+        Info: Computing checksum on file /etc/httpd/conf.d/autoindex.conf
+        Info: /Stage[main]/Apache/File[/etc/httpd/conf.d/autoindex.conf]: Filebucketed /etc/httpd/conf.d/autoindex.conf to puppet with sum 09726332c2fd6fc73a57fbe69fc10427
+        Notice: /Stage[main]/Apache/File[/etc/httpd/conf.d/autoindex.conf]/ensure: removed
+    -
+    -
+    -
+        Info: Concat[15-default.conf]: Scheduling refresh of Class[Apache::Service]
+        Info: Class[Apache::Service]: Scheduling refresh of Service[httpd]
+        Notice: /Stage[main]/Apache::Service/Service[httpd]/ensure: ensure changed 'stopped' to 'running'
+        Info: /Stage[main]/Apache::Service/Service[httpd]: Unscheduling refresh on Service[httpd]
+        Notice: Applied catalog in 66.27 seconds
