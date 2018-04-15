@@ -1,6 +1,8 @@
 
 
-# Puppet Master
+# Puppet Installation
+
+**Puppet Master**
 
 rpm -Uvh https://yum.puppet.com/puppet5/puppet5-release-el-7.noarch.rpm
 
@@ -49,7 +51,7 @@ List unsigned certifiates and sign it
 
      notify {"Agent connection is successful": }
 
-Puppet Agent
+**Puppet Agent**
 
 rpm -Uvh https://yum.puppet.com/puppet5/puppet5-release-el-7.noarch.rpm
 
