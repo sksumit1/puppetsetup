@@ -295,7 +295,7 @@ vi /etc/puppetlabs/code/environments/production/data/common.yaml
       include role::webserver
     }
 
-Run puppet agent
+**Run puppet agent**
 
         [root@puppetagent ~]# puppet agent -t
         Info: Using configured environment 'production'
