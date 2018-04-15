@@ -1,6 +1,7 @@
 Puppet Master
 
 rpm -Uvh https://yum.puppet.com/puppet5/puppet5-release-el-7.noarch.rpm
+
 yum install puppetserver
 
 vi /etc/sysconfig/puppetserver
@@ -43,6 +44,7 @@ Notice: Removing file Puppet::SSL::CertificateRequest puppetagent.local at '/etc
 Puppet Agent
 
 rpm -Uvh https://yum.puppet.com/puppet5/puppet5-release-el-7.noarch.rpm
+
 yum install puppet-agent
 puppet resource service puppet ensure=running enable=true
 yum install -y ntpdate man perl wget
